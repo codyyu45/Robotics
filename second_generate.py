@@ -618,17 +618,18 @@ def ray_cast2(sparse_map2, cube_info, ray):
     ray_components = []
     for i in range(0, 10):
         index = i * 2 + 1
-        ray_components.append(array[i])
-    ray_x = ray_components[0]
-    ray_y = ray_components[1]
-    ray_z = ray_components[2]
-    direction_x = ray_components[3] - ray_x
-    direction_y = ray_components[4] - ray_y
-    direction_z = ray_components[5] - ray_z
-    r = ray_components[6]
-    g = ray_components[7]
-    b = ray_components[8]
-    a = ray_components[9]
+        ray_components.append(array[index])
+
+    ray_x = float(ray_components[0])
+    ray_y = float(ray_components[1])
+    ray_z = float(ray_components[2])
+    direction_x = float(ray_components[3]) - ray_x
+    direction_y = float(ray_components[4]) - ray_y
+    direction_z = float(ray_components[5]) - ray_z
+    r = float(ray_components[6])
+    g = float(ray_components[7])
+    b = float(ray_components[8])
+    a = float(ray_components[9])
 
     #if ray comes as an object:
     # ray_x = ray['ax']
@@ -643,10 +644,11 @@ def ray_cast2(sparse_map2, cube_info, ray):
     # a = ray['ca']
 
     vector = [direction_x, direction_y, direction_z]
-    vector /= np.linalg.norm(vector)
-    direction_x = vector[0]
-    direction_y = vector[1]
-    direction_z = vector[2]
+    norm = np.linalg.norm(vector)
+    if norm != 0:
+        direction_x = vector[0] / float(norm)
+        direction_y = vector[1] / float(norm)
+        direction_z = vector[2] / float(norm)
 
     typeA = True
     if r == 0 and g == 0 and b == 0 and a != 0:
@@ -705,7 +707,7 @@ def ray_cast2(sparse_map2, cube_info, ray):
                             observation.r = (observation.r * observation.count + r) / float(observation.count + 1)
                             observation.g = (observation.g * observation.count + g) / float(observation.count + 1)
                             observation.b = (observation.b * observation.count + b) / float(observation.count + 1)
-                            observation.a = (observation.a * observation.count + a) / float(observation.count + 1)
+                            #observation.a = (observation.a * observation.count + a) / float(observation.count + 1)
                             observation.count = observation.count + 1
                             sparse_map2[key] = observation
                         else:
@@ -714,10 +716,10 @@ def ray_cast2(sparse_map2, cube_info, ray):
                             observation.r = r
                             observation.g = g
                             observation.b = b
-                            observation.a = a
+                            #observation.a = a
                             sparse_map2[key] = observation
             keepGoing = decideKeepGoing(curr_x, curr_y, curr_z, direction_x, direction_y, direction_z, delta_z, corner1, corner2, corner3, corner4, corner5, corner6, corner7, corner8)
-            cumulative_z += delta_z          
+            cumulative_z += delta_z      
 
     else:
         x = ray_x - cube_origin_x
@@ -734,18 +736,18 @@ def ray_cast2(sparse_map2, cube_info, ray):
                     if key in sparse_map2:
                         # should we still average the r g b channels here since we know they're 0?
                         observation = sparse_map2[key]
-                        observation.r = (observation.r * observation.count + r) / float(observation.count + 1)
-                        observation.g = (observation.g * observation.count + g) / float(observation.count + 1)
-                        observation.b = (observation.b * observation.count + b) / float(observation.count + 1)
+                        #observation.r = (observation.r * observation.count + r) / float(observation.count + 1)
+                        #observation.g = (observation.g * observation.count + g) / float(observation.count + 1)
+                        #observation.b = (observation.b * observation.count + b) / float(observation.count + 1)
                         observation.a = (observation.a * observation.count + a) / float(observation.count + 1)
                         observation.count = observation.count + 1
                         sparse_map2[key] = observation
                     else:
                         observation = Observation2()
                         observation.count = 1
-                        observation.r = r
-                        observation.g = g
-                        observation.b = b
+                        #observation.r = r
+                        #observation.g = g
+                        #observation.b = b
                         observation.a = a
                         sparse_map2[key] = observation
     return sparse_map2
@@ -807,14 +809,65 @@ def set_cube_dimension(top_down_view_info, padding, grid_size):
     cube_info = {'size' : cube_size, 'cube_origin' : cube_origin, 'grid_size' : grid_size, 'cell_width' : cube_size/float(grid_size)}
     return cube_info
 
+def get_ray_info(file_arr):
+    result = {}
+    x_max = 0
+    x_avg = 0
+    x_min = float('inf')
+    y_max = 0
+    y_min = float('inf')
+    y_avg = 0
+    z_max = 0
+    z_min  = float('inf')
+    z_avg = 0
+    count = 0
+    for fname in file_arr:
+        with open(fname, "r") as f:
+            for line in f:
 
+                line = line.strip()
+                arr = line.split(" ")
+
+                if int(arr[21]) == 2:
+                    count = count + 1
+                    ax = float(arr[1])
+                    ay = float(arr[3])
+                    az = float(arr[5])
+
+                    x_avg = x_avg + ax
+                    y_avg = y_avg + ay 
+                    z_avg = z_avg + az
+
+                    if(ax > x_max):
+                        x_max = ax
+                    if(ay > y_max):
+                        y_max = ay
+                    if(az > z_max):
+                        z_max = az
+                    if(ax < x_min):
+                        x_min = ax
+                    if (ay < y_min):
+                        y_min = ay
+                    if (az < z_min ):
+                        z_min = az
+
+
+    x_avg = x_avg / float(count)
+    y_avg = y_avg / float(count)
+    z_avg = z_avg / float(count)
+
+    result = {"x_min" : x_min, "x_max" : x_max, "x_avg" : x_avg,
+            "y_min" : y_min, "y_max" : y_max, "y_avg" : y_avg,
+            "z_min" : z_min, "z_max" : z_max, "z_avg" : z_avg}
+            
+    return set_cube_dimension(result, 1.2 , 1000)
 
 
 ################################################################################################
 ################################################################################################
 ################################################################################################
 
-def main(top_view, other_views, file_name):
+def main(file_name):
     # PAREMETER TUNING 
     GRID_SIZE = 1000 # there are GRID_SIZE^3 cells in the cube / number of smalls cubes in one edge
     PADDING_RATE = 1.2 # how much more space are we going to consider other than (min - max)
@@ -823,104 +876,139 @@ def main(top_view, other_views, file_name):
 
     sparse_map = {}
     sparse_map2 = {}
-    top_down_view_info = get_info_from_top_view(top_view)
+    #top_down_view_info = get_info_from_top_view(top_view)
 
-    cube_info = set_cube_dimension(top_down_view_info, PADDING_RATE, GRID_SIZE)
-    print "cube info : " + str(cube_info)
+    #ray file
+    fileList = ["test.ray", "strawberryAlpha.ray"]
+    cube_info = get_ray_info(fileList)
 
-    # 1. RAY CAST FROM TOP DOWN VIEW SLUG
-    print "===== reading from top down view ====== "
-    sparse_map = read_from_yml(top_view, sparse_map, top_down_view_info, cube_info)
+    print "starting 1"
+
+    # only type B
+    f1 = open("strawberryAlpha.ray")
+    lines1 = f1.readlines()
+    for line1 in lines1:
+        line1 = line1.strip()
+        sparse_map2 = ray_cast2(sparse_map2, cube_info, line1)
+
+    print "starting 2"
+
+    # only type B
+    f2 = open("test.ray")
+    lines2 = f2.readlines()
+    for line2 in lines2:
+        line2 = line2.strip()
+        sparse_map2 = ray_cast2(sparse_map2, cube_info, line2)
+
+    print "starting 3"
+
+    # only type A
+    f3 = open("strawberryRGB.ray")
+    lines3 = f3.readlines()
+    for line3 in lines3:
+        line3 = line3.strip()
+        sparse_map2 = ray_cast2(sparse_map2, cube_info, line3)
+
+    print "length of final sparse map  : " + str(len(sparse_map2))
+
+    print "done!"
+
+#     cube_info = set_cube_dimension(top_down_view_info, PADDING_RATE, GRID_SIZE)
+#     print "cube info : " + str(cube_info)
+
+#     # 1. RAY CAST FROM TOP DOWN VIEW SLUG
+#     print "===== reading from top down view ====== "
+#     sparse_map = read_from_yml(top_view, sparse_map, top_down_view_info, cube_info)
 
 
-    # 2. RAY CAST FROM OTHER VIEWS 
-    for other_view in other_views:
-        view_info = get_view_info(other_view)
-        print " other view info : " + str(view_info) + "\n\n"
-        sparse_map = read_from_yml(other_view, sparse_map, view_info, cube_info)
+#     # 2. RAY CAST FROM OTHER VIEWS 
+#     for other_view in other_views:
+#         view_info = get_view_info(other_view)
+#         print " other view info : " + str(view_info) + "\n\n"
+#         sparse_map = read_from_yml(other_view, sparse_map, view_info, cube_info)
 
 
-    # 3. WRITE SPARSE MAP INTO JSON FILE
-    data = []
-    n_count = 0
-    scoreMap = {}
-    print " ======  writing to file ======"
-    for key in sparse_map:
-        position = decode_key(key)
-        y = float(sparse_map[key].b)
-        cr = float(sparse_map[key].g)
-        cb = float(sparse_map[key].r)
-        bgr_array = convertYCrCB_BGR(y, cr, cb)
-        r_mu = float(bgr_array[0])
-        g_mu = float(bgr_array[1])
-        b_mu = float(bgr_array[2])
+#     # 3. WRITE SPARSE MAP INTO JSON FILE
+#     data = []
+#     n_count = 0
+#     scoreMap = {}
+#     print " ======  writing to file ======"
+#     for key in sparse_map:
+#         position = decode_key(key)
+#         y = float(sparse_map[key].b)
+#         cr = float(sparse_map[key].g)
+#         cb = float(sparse_map[key].r)
+#         bgr_array = convertYCrCB_BGR(y, cr, cb)
+#         r_mu = float(bgr_array[0])
+#         g_mu = float(bgr_array[1])
+#         b_mu = float(bgr_array[2])
         
-        score = sparse_map[key].occupancyConfidence
+#         score = sparse_map[key].occupancyConfidence
 
-        if score in scoreMap:
-            scoreMap[score] = scoreMap[score] + 1
-        else:
-            scoreMap[score] = 1
+#         if score in scoreMap:
+#             scoreMap[score] = scoreMap[score] + 1
+#         else:
+#             scoreMap[score] = 1
 
-        if score >= THRESHOLD:
-            data.append({'x': position['x']*cube_info["cell_width"] , 'y': position['y']*cube_info["cell_width"] , 'z': position['z']*cube_info["cell_width"] , 
-                'score': score , 'r' : r_mu, 'g': g_mu, 'b': b_mu})
-        else:
-            n_count = n_count + 1
+#         if score >= THRESHOLD:
+#             data.append({'x': position['x']*cube_info["cell_width"] , 'y': position['y']*cube_info["cell_width"] , 'z': position['z']*cube_info["cell_width"] , 
+#                 'score': score , 'r' : r_mu, 'g': g_mu, 'b': b_mu})
+#         else:
+#             n_count = n_count + 1
 
-    print " noise count is : " + str(n_count) + " among total of : " + str(len(sparse_map))
+#     print " noise count is : " + str(n_count) + " among total of : " + str(len(sparse_map))
 
-# for i in range(0, 1000):
-#     #as axis scale increases, the drawn axes get smaller
-#     axis_scale = 100
-#     value = i / float(axis_scale)
-#     #x axis is red
-#     data.append({'x': value, 'y': 0, 'z': 0, 'score': 1, 'r' : 255, 'g': 0, 'b': 0})
-#     #y axis is green 
-#     data.append({'x': 0, 'y': value, 'z': 0, 'score': 1, 'r' : 0, 'g': 255, 'b': 0})
-#     #z axis is blue
-#     data.append({'x': 0, 'y': 0, 'z': value, 'score': 1, 'r' : 0, 'g': 0, 'b': 255})
+# # for i in range(0, 1000):
+# #     #as axis scale increases, the drawn axes get smaller
+# #     axis_scale = 100
+# #     value = i / float(axis_scale)
+# #     #x axis is red
+# #     data.append({'x': value, 'y': 0, 'z': 0, 'score': 1, 'r' : 255, 'g': 0, 'b': 0})
+# #     #y axis is green 
+# #     data.append({'x': 0, 'y': value, 'z': 0, 'score': 1, 'r' : 0, 'g': 255, 'b': 0})
+# #     #z axis is blue
+# #     data.append({'x': 0, 'y': 0, 'z': value, 'score': 1, 'r' : 0, 'g': 0, 'b': 255})
 
-#     print scoreMap
+# #     print scoreMap
 
-    out_file = open(file_name, "w")
+#     out_file = open(file_name, "w")
 
-    # Save the dictionary into this file
-    # (the 'indent=4' is optional, but makes it more readable)
+#     # Save the dictionary into this file
+#     # (the 'indent=4' is optional, but makes it more readable)
 
-    #final_data = {"data" : data , "info" : top_down_view_info}
-    #json.dump(final_data, out_file, indent=4)                                    
+#     #final_data = {"data" : data , "info" : top_down_view_info}
+#     #json.dump(final_data, out_file, indent=4)                                    
 
-    #temp = new_planes + old_planes
+#     #temp = new_planes + old_planes
 
-    print " ================== ABOUT TO WRTIE TO FILE =============="
-    print "length of final sparse map  : " + str(len(sparse_map))
-    print "length of data written to json after threshold  : " + str(len(data))
-    json.dump(data, out_file, indent=4) 
+#     print " ================== ABOUT TO WRTIE TO FILE =============="
+#     print "length of final sparse map  : " + str(len(sparse_map))
+#     print "length of data written to json after threshold  : " + str(len(data))
+#     json.dump(data, out_file, indent=4) 
     
-    # Close the file
-    out_file.close()
+#     # Close the file
+#     out_file.close()
 
     return 
 
 
 if __name__ == "__main__":
-    top_down_file = sys.argv[1]
-    other_views = []
-    l = len(sys.argv)
+    # top_down_file = sys.argv[1]
+    # other_views = []
+    # l = len(sys.argv)
 
-    if l < 2:
-        print "at least one slug file and output file name is needed"
-    else: 
+    # if l < 2:
+    #     print "at least one slug file and output file name is needed"
+    # else: 
 
-        file_name = sys.argv[l-1];
+    #     file_name = sys.argv[l-1];
 
-        for i in range(2,l-1):
-            other_views.append(sys.argv[i])
+    #     for i in range(2,l-1):
+    #         other_views.append(sys.argv[i])
 
 
-        print "processing " + str(l-2) + " yaml files and creating " +  str(file_name) + "  json file..." 
-
-        main(top_down_file, other_views, file_name )
+    #     print "processing " + str(l-2) + " yaml files and creating " +  str(file_name) + "  json file..." 
+    file_name = ""
+    main(file_name)
 
    
