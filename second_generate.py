@@ -18,7 +18,8 @@ class Observation:
     b = 0.0
 
 class Observation2:
-    count = 0.0
+    countRGB = 0.0
+    countA = 0.0
     r = 0.0
     g = 0.0
     b = 0.0
@@ -705,15 +706,15 @@ def ray_cast2(sparse_map2, cube_info, ray):
                         if key in sparse_map2:
                             # should we still average in the 'a' value since we know it's 0?
                             observation = sparse_map2[key]
-                            observation.r = (observation.r * observation.count + r) / float(observation.count + 1)
-                            observation.g = (observation.g * observation.count + g) / float(observation.count + 1)
-                            observation.b = (observation.b * observation.count + b) / float(observation.count + 1)
+                            observation.r = (observation.r * observation.countRGB + r) / float(observation.countRGB + 1)
+                            observation.g = (observation.g * observation.countRGB + g) / float(observation.countRGB + 1)
+                            observation.b = (observation.b * observation.countRGB + b) / float(observation.countRGB + 1)
                             #observation.a = (observation.a * observation.count + a) / float(observation.count + 1)
-                            observation.count = observation.count + 1
+                            observation.countRGB = observation.countRGB + 1
                             sparse_map2[key] = observation
                         else:
                             observation = Observation2()
-                            observation.count = 1
+                            observation.countRGB = 1
                             observation.r = r
                             observation.g = g
                             observation.b = b
@@ -740,12 +741,12 @@ def ray_cast2(sparse_map2, cube_info, ray):
                         #observation.r = (observation.r * observation.count + r) / float(observation.count + 1)
                         #observation.g = (observation.g * observation.count + g) / float(observation.count + 1)
                         #observation.b = (observation.b * observation.count + b) / float(observation.count + 1)
-                        observation.a = (observation.a * observation.count + a) / float(observation.count + 1)
-                        observation.count = observation.count + 1
+                        observation.a = (observation.a * observation.countA + a) / float(observation.countA + 1)
+                        observation.countA = observation.countA + 1
                         sparse_map2[key] = observation
                     else:
                         observation = Observation2()
-                        observation.count = 1
+                        observation.countA = 1
                         #observation.r = r
                         #observation.g = g
                         #observation.b = b
@@ -906,15 +907,16 @@ def main(file_name):
     # only type A
     f3 = open("strawberryRGBMany.ray")
     lines3 = f3.readlines()
-    randomNumber = math.floor(random.random() * 100)
+    randomNumber = math.floor(random.random() * 40)
     count = 0
     for line3 in lines3:
         if count == randomNumber:
             line3 = line3.strip()
             sparse_map2 = ray_cast2(sparse_map2, cube_info, line3)
-            randomNumber = math.floor(random.random() * 100)
+            randomNumber = math.floor(random.random() * 40)
             count = 0
-        count += 1
+        else:
+            count += 1
 
     print "length of final sparse map  : " + str(len(sparse_map2))
 
@@ -929,7 +931,7 @@ def main(file_name):
         cr = float(sparse_map2[key].g)
         cb = float(sparse_map2[key].r)
         a = float(sparse_map2[key].a)
-        count = float(sparse_map2[key].count)
+        #count = float(sparse_map2[key].count)
         bgr_array = convertYCrCB_BGR(y, cr, cb)
         r_mu = float(bgr_array[0])
         g_mu = float(bgr_array[1])
