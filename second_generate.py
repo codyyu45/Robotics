@@ -7,6 +7,7 @@ import json
 import numpy as np
 import math
 from scipy.ndimage.filters import gaussian_filter
+import random
 
 class Observation:
     observationCount = 0
@@ -17,7 +18,8 @@ class Observation:
     b = 0.0
 
 class Observation2:
-    count = 0.0
+    countRGB = 0.0
+    countA = 0.0
     r = 0.0
     g = 0.0
     b = 0.0
@@ -704,15 +706,15 @@ def ray_cast2(sparse_map2, cube_info, ray):
                         if key in sparse_map2:
                             # should we still average in the 'a' value since we know it's 0?
                             observation = sparse_map2[key]
-                            observation.r = (observation.r * observation.count + r) / float(observation.count + 1)
-                            observation.g = (observation.g * observation.count + g) / float(observation.count + 1)
-                            observation.b = (observation.b * observation.count + b) / float(observation.count + 1)
+                            observation.r = (observation.r * observation.countRGB + r) / float(observation.countRGB + 1)
+                            observation.g = (observation.g * observation.countRGB + g) / float(observation.countRGB + 1)
+                            observation.b = (observation.b * observation.countRGB + b) / float(observation.countRGB + 1)
                             #observation.a = (observation.a * observation.count + a) / float(observation.count + 1)
-                            observation.count = observation.count + 1
+                            observation.countRGB = observation.countRGB + 1
                             sparse_map2[key] = observation
                         else:
                             observation = Observation2()
-                            observation.count = 1
+                            observation.countRGB = 1
                             observation.r = r
                             observation.g = g
                             observation.b = b
@@ -739,12 +741,12 @@ def ray_cast2(sparse_map2, cube_info, ray):
                         #observation.r = (observation.r * observation.count + r) / float(observation.count + 1)
                         #observation.g = (observation.g * observation.count + g) / float(observation.count + 1)
                         #observation.b = (observation.b * observation.count + b) / float(observation.count + 1)
-                        observation.a = (observation.a * observation.count + a) / float(observation.count + 1)
-                        observation.count = observation.count + 1
+                        observation.a = (observation.a * observation.countA + a) / float(observation.countA + 1)
+                        observation.countA = observation.countA + 1
                         sparse_map2[key] = observation
                     else:
                         observation = Observation2()
-                        observation.count = 1
+                        observation.countA = 1
                         #observation.r = r
                         #observation.g = g
                         #observation.b = b
@@ -879,13 +881,13 @@ def main(file_name):
     #top_down_view_info = get_info_from_top_view(top_view)
 
     #ray file
-    fileList = ["test.ray", "strawberryAlpha.ray"]
+    fileList = ["shoeSceneAlpha.ray"]
     cube_info = get_ray_info(fileList)
 
     print "starting 1"
 
     # only type B
-    f1 = open("strawberryAlpha.ray")
+    f1 = open("shoeSceneAlpha.ray")
     lines1 = f1.readlines()
     for line1 in lines1:
         line1 = line1.strip()
@@ -894,23 +896,54 @@ def main(file_name):
     print "starting 2"
 
     # only type B
-    f2 = open("test.ray")
-    lines2 = f2.readlines()
-    for line2 in lines2:
-        line2 = line2.strip()
-        sparse_map2 = ray_cast2(sparse_map2, cube_info, line2)
+    # f2 = open("test.ray")
+    # lines2 = f2.readlines()
+    # for line2 in lines2:
+    #     line2 = line2.strip()
+    #     sparse_map2 = ray_cast2(sparse_map2, cube_info, line2)
 
-    print "starting 3"
+    # print "starting 3"
 
     # only type A
-    f3 = open("strawberryRGB.ray")
+    f3 = open("strawberryRGBMany.ray")
     lines3 = f3.readlines()
+    randomNumber = math.floor(random.random() * 40)
+    count = 0
     for line3 in lines3:
-        line3 = line3.strip()
-        sparse_map2 = ray_cast2(sparse_map2, cube_info, line3)
+        if count == randomNumber:
+            line3 = line3.strip()
+            sparse_map2 = ray_cast2(sparse_map2, cube_info, line3)
+            randomNumber = math.floor(random.random() * 40)
+            count = 0
+        else:
+            count += 1
 
     print "length of final sparse map  : " + str(len(sparse_map2))
 
+    # 3. WRITE SPARSE MAP INTO JSON FILE
+    data = []
+    n_count = 0
+    scoreMap = {}
+    print " ======  writing to file ======"
+    for key in sparse_map2:
+        position = decode_key(key)
+        y = float(sparse_map2[key].b)
+        cr = float(sparse_map2[key].g)
+        cb = float(sparse_map2[key].r)
+        a = float(sparse_map2[key].a)
+        #count = float(sparse_map2[key].count)
+        bgr_array = convertYCrCB_BGR(y, cr, cb)
+        r_mu = float(bgr_array[0])
+        g_mu = float(bgr_array[1])
+        b_mu = float(bgr_array[2])
+
+        if a > 0:
+            n_count += 1
+            data.append({'x': position['x']*cube_info["cell_width"] , 'y': position['y']*cube_info["cell_width"] , 'z': position['z']*cube_info["cell_width"] , 
+                'score': 1, 'r' : r_mu, 'g': g_mu, 'b': b_mu})
+
+    print n_count
+    print len(sparse_map2)
     print "done!"
 
 #     cube_info = set_cube_dimension(top_down_view_info, PADDING_RATE, GRID_SIZE)
@@ -970,8 +1003,8 @@ def main(file_name):
 # #     data.append({'x': 0, 'y': 0, 'z': value, 'score': 1, 'r' : 0, 'g': 0, 'b': 255})
 
 # #     print scoreMap
-
-#     out_file = open(file_name, "w")
+    
+    out_file = open("ray_output.json", "w")
 
 #     # Save the dictionary into this file
 #     # (the 'indent=4' is optional, but makes it more readable)
@@ -984,10 +1017,10 @@ def main(file_name):
 #     print " ================== ABOUT TO WRTIE TO FILE =============="
 #     print "length of final sparse map  : " + str(len(sparse_map))
 #     print "length of data written to json after threshold  : " + str(len(data))
-#     json.dump(data, out_file, indent=4) 
+    json.dump(data, out_file, indent=4) 
     
-#     # Close the file
-#     out_file.close()
+    # Close the file
+    out_file.close()
 
     return 
 
