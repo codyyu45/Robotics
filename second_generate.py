@@ -682,8 +682,8 @@ def ray_cast2(sparse_map2, cube_info, ray):
         corner7 = np.array([cube_origin_x + length, cube_origin_y + length, cube_origin_z + length])
             #back bottom left
         corner8 = np.array([cube_origin_x + length, cube_origin_y, cube_origin_z + length])
-
-        delta_z = 0.05
+        previous = ""
+        delta_z = 0.001
         cumulative_z = 0.0
         keepGoing = True
         while keepGoing:
@@ -703,23 +703,29 @@ def ray_cast2(sparse_map2, cube_info, ray):
                         key_z = math.floor(z / cell_width)
                         key = encode_key(key_x, key_y, key_z)
 
-                        if key in sparse_map2:
-                            # should we still average in the 'a' value since we know it's 0?
-                            observation = sparse_map2[key]
-                            observation.r = (observation.r * observation.countRGB + r) / float(observation.countRGB + 1)
-                            observation.g = (observation.g * observation.countRGB + g) / float(observation.countRGB + 1)
-                            observation.b = (observation.b * observation.countRGB + b) / float(observation.countRGB + 1)
-                            #observation.a = (observation.a * observation.count + a) / float(observation.count + 1)
-                            observation.countRGB = observation.countRGB + 1
-                            sparse_map2[key] = observation
-                        else:
-                            observation = Observation2()
-                            observation.countRGB = 1
-                            observation.r = r
-                            observation.g = g
-                            observation.b = b
-                            #observation.a = a
-                            sparse_map2[key] = observation
+                        if key != previous:
+                            if key in sparse_map2:
+                                # should we still average in the 'a' value since we know it's 0?
+                                observation = sparse_map2[key]
+                                observation.r = (observation.r * observation.countRGB + r) / float(observation.countRGB + 1)
+                                observation.g = (observation.g * observation.countRGB + g) / float(observation.countRGB + 1)
+                                observation.b = (observation.b * observation.countRGB + b) / float(observation.countRGB + 1)
+                                #observation.a = (observation.a * observation.count + a) / float(observation.count + 1)
+                                # observation.r = r
+                                # observation.g = g
+                                # observation.b = b
+                                observation.countRGB = observation.countRGB + 1
+                                sparse_map2[key] = observation
+                            else:
+                                observation = Observation2()
+                                observation.countRGB = 1
+                                observation.r = r
+                                observation.g = g
+                                observation.b = b
+                                #observation.a = a
+                                sparse_map2[key] = observation
+                            previous = key
+
             keepGoing = decideKeepGoing(curr_x, curr_y, curr_z, direction_x, direction_y, direction_z, delta_z, corner1, corner2, corner3, corner4, corner5, corner6, corner7, corner8)
             cumulative_z += delta_z      
 
@@ -862,7 +868,7 @@ def get_ray_info(file_arr):
             "y_min" : y_min, "y_max" : y_max, "y_avg" : y_avg,
             "z_min" : z_min, "z_max" : z_max, "z_avg" : z_avg}
             
-    return set_cube_dimension(result, 1.2 , 1000)
+    return set_cube_dimension(result, 1.2 , 100)
 
 
 ################################################################################################
@@ -871,7 +877,7 @@ def get_ray_info(file_arr):
 
 def main(file_name):
     # PAREMETER TUNING 
-    GRID_SIZE = 1000 # there are GRID_SIZE^3 cells in the cube / number of smalls cubes in one edge
+    GRID_SIZE = 100 # there are GRID_SIZE^3 cells in the cube / number of smalls cubes in one edge
     PADDING_RATE = 1.2 # how much more space are we going to consider other than (min - max)
     THRESHOLD  = 0.8
     MIN_OBSERVATION = 3
@@ -881,13 +887,13 @@ def main(file_name):
     #top_down_view_info = get_info_from_top_view(top_view)
 
     #ray file
-    fileList = ["shoeSceneAlpha.ray"]
+    fileList = ["duckStrawberryBowlAlpha1.ray"]
     cube_info = get_ray_info(fileList)
 
     print "starting 1"
 
     # only type B
-    f1 = open("shoeSceneAlpha.ray")
+    f1 = open("duckStrawberryBowlAlpha1.ray")
     lines1 = f1.readlines()
     for line1 in lines1:
         line1 = line1.strip()
@@ -905,21 +911,23 @@ def main(file_name):
     # print "starting 3"
 
     # only type A
-    f3 = open("strawberryRGBMany.ray")
+    f3 = open("duckStrawberryBowlRGB1.ray")
     lines3 = f3.readlines()
-    randomNumber = math.floor(random.random() * 40)
+    randomNumber = math.floor(random.random() * 1000)
     count = 0
+    num_rays = 0
     for line3 in lines3:
         if count == randomNumber:
             line3 = line3.strip()
             sparse_map2 = ray_cast2(sparse_map2, cube_info, line3)
-            randomNumber = math.floor(random.random() * 40)
+            randomNumber = math.floor(random.random() * 1000)
             count = 0
+            num_rays += 1
         else:
             count += 1
 
     print "length of final sparse map  : " + str(len(sparse_map2))
-
+    print num_rays
     # 3. WRITE SPARSE MAP INTO JSON FILE
     data = []
     n_count = 0
@@ -927,20 +935,32 @@ def main(file_name):
     print " ======  writing to file ======"
     for key in sparse_map2:
         position = decode_key(key)
-        y = float(sparse_map2[key].b)
+        y = float(sparse_map2[key].r)
         cr = float(sparse_map2[key].g)
-        cb = float(sparse_map2[key].r)
+        cb = float(sparse_map2[key].b)
         a = float(sparse_map2[key].a)
-        #count = float(sparse_map2[key].count)
+        countRGB = float(sparse_map2[key].countRGB)
         bgr_array = convertYCrCB_BGR(y, cr, cb)
         r_mu = float(bgr_array[0])
         g_mu = float(bgr_array[1])
         b_mu = float(bgr_array[2])
 
-        if a > 0:
-            n_count += 1
-            data.append({'x': position['x']*cube_info["cell_width"] , 'y': position['y']*cube_info["cell_width"] , 'z': position['z']*cube_info["cell_width"] , 
-                'score': 1, 'r' : r_mu, 'g': g_mu, 'b': b_mu})
+        r2_mu = sparse_map2[key].r
+        g2_mu = sparse_map2[key].g
+        b2_mu = sparse_map2[key].b
+
+        if sparse_map2[key].b == 0 and sparse_map2[key].g == 0 and sparse_map2[key].r == 0:
+            r_mu = 255
+            g_mu = 0
+            b_mu = 0
+            # r2_mu = 255
+            # g2_mu = 0
+            # b2_mu = 0
+
+        #if a > 0 and countRGB > 0:
+        n_count += 1
+        data.append({'x': position['x']*cube_info["cell_width"] , 'y': position['y']*cube_info["cell_width"] , 'z': position['z']*cube_info["cell_width"] , 
+            'countRGB': countRGB, 'a': a, 'r' : r_mu, 'g': g_mu, 'b': b_mu, 'r2': r2_mu, 'g2': g2_mu, 'b2': b2_mu})
 
     print n_count
     print len(sparse_map2)
@@ -1004,7 +1024,7 @@ def main(file_name):
 
 # #     print scoreMap
     
-    out_file = open("ray_output.json", "w")
+    out_file = open("ray_output2.json", "w")
 
 #     # Save the dictionary into this file
 #     # (the 'indent=4' is optional, but makes it more readable)
