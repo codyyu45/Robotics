@@ -8,8 +8,6 @@ import numpy as np
 import math
 from scipy.ndimage.filters import gaussian_filter
 
-# maxlength doesn't look like it's doing anything
-
 
 class Observation:
     observationCount = 0
@@ -240,7 +238,7 @@ def get_info_from_top_view(file_name):
 
 
 def get_ray_origin(slug_info, x, y, cell_length):
-    z_max = 0.46596
+    z_max = 0.388
     default_pos = slug_info['position']
 
     rotation_matrix = quaternion_to_rotation_matrix(slug_info['position']['qw'],
@@ -384,8 +382,13 @@ def quaternion_to_rotation_matrix(qw, qx, qy, qz):
     m[2][0] = 2*qx*qz - 2*qw*qy
     m[2][1] = 2*qy*qz + 2*qw*qx
     m[2][2] = 1- 2*qx*qx - 2*qy*qy
+<<<<<<< HEAD
     return np.linalg.inv(m)
 
+=======
+    #return np.linalg.inv(m)
+    return m
+>>>>>>> 4942a8b335eb0b5d545fe925b3c8b7e51003238b
 
 def convertYCrCB_BGR(y,cr,cb):
     data = []
@@ -440,8 +443,8 @@ def ray_cast(sparse_map, origin, direction, z_len, cube_info, r, g, b):
     grid_size = cube_info['grid_size']
     cell_width = cube_info['cell_width']
 
-    delta_z = 0.01
-    cumulative_z = 0.01
+    delta_z = 0.05
+    cumulative_z = 0.05
     previous = ""
 
     while cumulative_z <= z_len:

@@ -68,18 +68,22 @@
 
         group = new THREE.Group();
 
-        loadJSON("top1.json", function(response) {
+        //test is the first giraffe, 2 is the original banana scene, 4 is the 3 new giraffes together inverse , 5 is top down new giraffe, 6 is 3 new giraffes not inverted rotation matrix, 7 is 3 new giraffes together inverse with added filter, 8 is same as 4 except with 0.46 instead of 0.388, 12 is working version of new giraffe top down only, 13 is all 3, 14 is top and front, 15 is top and back, 16 is just back right, 17 is just front left, 18 is front left NOT inverse, 19 is back right not inverse, 20 is top down not inverse, 21 is all three not inverse, 22 is all three not inverse, with 0.46 - 0.388, 23 is with a z max of 0, 24 is with z max of 0.388
+        loadJSON("ray_output.json", function(response) {
+
 
             var actual_JSON = JSON.parse(response);
 
             for (var i = 0; i < actual_JSON.length; i++) {
-                if (isNaN(actual_JSON[i]["r"]) || isNaN(actual_JSON[i]["g"]) || isNaN(actual_JSON[i]["b"])) {
-                    console.log("not a number");
-                } else {
+
+
+                if ((actual_JSON[i]["a"] > 0) && (actual_JSON[i]["countRGB"] > 0)) {
+
 
                     var r = Math.round(actual_JSON[i]["r"]).toString()
                     var g = Math.round(actual_JSON[i]["g"]).toString()
                     var b = Math.round(actual_JSON[i]["b"]).toString()
+
 
                     var c = "rgb(" + r + ", " + g + ", " + b + ")";
 
@@ -102,6 +106,7 @@
                     mesh.matrixAutoUpdate = false;
                     mesh.updateMatrix();
                     group.add(mesh);
+
 
                 }
             }
