@@ -173,23 +173,23 @@
         //top pos z
         if ((clickCount % 5) == 0) {
 
-            // camera.position.x = xPos;
-            // camera.position.y = yPos;
-            // camera.position.z = zPos + zoomScaleZ;
+            camera.position.x = xPos;
+            camera.position.y = yPos;
+            camera.position.z = zPos + zoomScaleZ;
 
             //FRONT
-            var dir_x = -0.4722;
-            var dir_y = 0.4722;
-            var dir_z = -0.7443;
+            // var dir_x = -0.4722;
+            // var dir_y = 0.4722;
+            // var dir_z = -0.7443;
 
             //BACK
             // var dir_x = 0.3312;
             // var dir_y = -0.3312;
             // var dir_z = -0.8835;
 
-            camera.position.x = xPos + dir_x * 100;
-            camera.position.y = yPos + dir_y * 100;
-            camera.position.z = zPos + dir_z * 100;
+            // camera.position.x = xPos + dir_x * 100;
+            // camera.position.y = yPos + dir_y * 100;
+            // camera.position.z = zPos + dir_z * 100;
 
 
             camera.lookAt(scenePosition);

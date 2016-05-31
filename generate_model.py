@@ -382,13 +382,9 @@ def quaternion_to_rotation_matrix(qw, qx, qy, qz):
     m[2][0] = 2*qx*qz - 2*qw*qy
     m[2][1] = 2*qy*qz + 2*qw*qx
     m[2][2] = 1- 2*qx*qx - 2*qy*qy
-<<<<<<< HEAD
-    return np.linalg.inv(m)
 
-=======
-    #return np.linalg.inv(m)
     return m
->>>>>>> 4942a8b335eb0b5d545fe925b3c8b7e51003238b
+
 
 def convertYCrCB_BGR(y,cr,cb):
     data = []

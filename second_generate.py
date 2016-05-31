@@ -8,6 +8,7 @@ import numpy as np
 import math
 from scipy.ndimage.filters import gaussian_filter
 import random
+from sympy import Point, Point3D, Line, Line3D, Plane
 
 class Observation:
     observationCount = 0
@@ -612,180 +613,6 @@ def ray_cast(sparse_map, origin, direction, z_len, cube_info, r, g, b):
 
     return sparse_map
 
-# casts a single ray, which is in the format specified by John
-def ray_cast2(sparse_map2, cube_info, ray):
-
-    #if ray comes as a string:
-    array = ray.split(" ")
-    ray_components = []
-    for i in range(0, 10):
-        index = i * 2 + 1
-        ray_components.append(array[index])
-
-    ray_x = float(ray_components[0])
-    ray_y = float(ray_components[1])
-    ray_z = float(ray_components[2])
-    direction_x = float(ray_components[3]) - ray_x
-    direction_y = float(ray_components[4]) - ray_y
-    direction_z = float(ray_components[5]) - ray_z
-    r = float(ray_components[6])
-    g = float(ray_components[7])
-    b = float(ray_components[8])
-    a = float(ray_components[9])
-
-    #if ray comes as an object:
-    # ray_x = ray['ax']
-    # ray_y = ray['ay']
-    # ray_z = ray['az']
-    # direction_x = ray['bx'] - ray_x
-    # direction_y = ray['by'] - ray_y
-    # direction_z = ray['bz'] - ray_z
-    # r = ray['cr']
-    # g = ray['cg']
-    # b = ray['cb']
-    # a = ray['ca']
-
-    vector = [direction_x, direction_y, direction_z]
-    norm = np.linalg.norm(vector)
-    if norm != 0:
-        direction_x = vector[0] / float(norm)
-        direction_y = vector[1] / float(norm)
-        direction_z = vector[2] / float(norm)
-
-    typeA = True
-    if r == 0 and g == 0 and b == 0 and a != 0:
-        typeA = False
-    
-    #cube info
-    cube_origin_x = cube_info['cube_origin']['x_origin']
-    cube_origin_y = cube_info['cube_origin']['y_origin']
-    cube_origin_z = cube_info['cube_origin']['z_origin']
-    grid_size = cube_info['grid_size']
-    cell_width = cube_info['cell_width']
-
-    if typeA:
-        # Used in decideKeepGoing(): Calculate locations of 8 corners. Calculate next point and see if the ray is moving further away from all 8 corners. If so, return False
-        length = grid_size * cell_width
-            #origin, AKA front bottom left
-        corner1 = np.array([cube_origin_x, cube_origin_y, cube_origin_z])
-            #front top left
-        corner2 = np.array([cube_origin_x, cube_origin_y + length, cube_origin_z])
-            #front top right
-        corner3 = np.array([cube_origin_x + length, cube_origin_y + length, cube_origin_z])
-            #front bottom right
-        corner4 = np.array([cube_origin_x + length, cube_origin_y, cube_origin_z])
-            #back bottom left
-        corner5 = np.array([cube_origin_x, cube_origin_y, cube_origin_z + length])
-            #back top left
-        corner6 = np.array([cube_origin_x, cube_origin_y + length, cube_origin_z + length])
-            #back top right
-        corner7 = np.array([cube_origin_x + length, cube_origin_y + length, cube_origin_z + length])
-            #back bottom left
-        corner8 = np.array([cube_origin_x + length, cube_origin_y, cube_origin_z + length])
-        previous = ""
-        delta_z = 0.001
-        cumulative_z = 0.0
-        keepGoing = True
-        while keepGoing:
-            curr_x = ray_x + direction_x * cumulative_z
-            curr_y = ray_y + direction_y * cumulative_z
-            curr_z = ray_z + direction_z * cumulative_z
-
-            x = curr_x - cube_origin_x
-            y = curr_y - cube_origin_y
-            z = curr_z - cube_origin_z
-
-            if (x >= 0) and (x <= grid_size * cell_width):
-                if (y >= 0) and (y <= grid_size * cell_width):
-                    if (z >= 0) and (z <= grid_size * cell_width):
-                        key_x = math.floor(x / cell_width)
-                        key_y = math.floor(y / cell_width)
-                        key_z = math.floor(z / cell_width)
-                        key = encode_key(key_x, key_y, key_z)
-
-                        if key != previous:
-                            if key in sparse_map2:
-                                # should we still average in the 'a' value since we know it's 0?
-                                observation = sparse_map2[key]
-                                observation.r = (observation.r * observation.countRGB + r) / float(observation.countRGB + 1)
-                                observation.g = (observation.g * observation.countRGB + g) / float(observation.countRGB + 1)
-                                observation.b = (observation.b * observation.countRGB + b) / float(observation.countRGB + 1)
-                                #observation.a = (observation.a * observation.count + a) / float(observation.count + 1)
-                                # observation.r = r
-                                # observation.g = g
-                                # observation.b = b
-                                observation.countRGB = observation.countRGB + 1
-                                sparse_map2[key] = observation
-                            else:
-                                observation = Observation2()
-                                observation.countRGB = 1
-                                observation.r = r
-                                observation.g = g
-                                observation.b = b
-                                #observation.a = a
-                                sparse_map2[key] = observation
-                            previous = key
-
-            keepGoing = decideKeepGoing(curr_x, curr_y, curr_z, direction_x, direction_y, direction_z, delta_z, corner1, corner2, corner3, corner4, corner5, corner6, corner7, corner8)
-            cumulative_z += delta_z      
-
-    else:
-        x = ray_x - cube_origin_x
-        y = ray_y - cube_origin_y
-        z = ray_z - cube_origin_z
-        if (x >= 0) and (x <= grid_size * cell_width):
-            if (y >= 0) and (y <= grid_size * cell_width):
-                if (z >= 0) and (z <= grid_size * cell_width):
-                    key_x = math.floor(x / cell_width)
-                    key_y = math.floor(y / cell_width)
-                    key_z = math.floor(z / cell_width)
-                    key = encode_key(key_x, key_y, key_z)
-
-                    if key in sparse_map2:
-                        # should we still average the r g b channels here since we know they're 0?
-                        observation = sparse_map2[key]
-                        #observation.r = (observation.r * observation.count + r) / float(observation.count + 1)
-                        #observation.g = (observation.g * observation.count + g) / float(observation.count + 1)
-                        #observation.b = (observation.b * observation.count + b) / float(observation.count + 1)
-                        observation.a = (observation.a * observation.countA + a) / float(observation.countA + 1)
-                        observation.countA = observation.countA + 1
-                        sparse_map2[key] = observation
-                    else:
-                        observation = Observation2()
-                        observation.countA = 1
-                        #observation.r = r
-                        #observation.g = g
-                        #observation.b = b
-                        observation.a = a
-                        sparse_map2[key] = observation
-    return sparse_map2
-
-def decideKeepGoing(x, y, z, dirX, dirY, dirZ, delta_z, corner1, corner2, corner3, corner4, corner5, corner6, corner7, corner8):
-    curr = np.array([x, y, z])
-    nextPoint = np.array([x + delta_z * dirX, y + delta_z * dirY, z + delta_z * dirZ])
-
-    curr1 = np.linalg.norm(curr - corner1)
-    curr2 = np.linalg.norm(curr - corner2)
-    curr3 = np.linalg.norm(curr - corner3)
-    curr4 = np.linalg.norm(curr - corner4)
-    curr5 = np.linalg.norm(curr - corner5)
-    curr6 = np.linalg.norm(curr - corner6)
-    curr7 = np.linalg.norm(curr - corner7)
-    curr8 = np.linalg.norm(curr - corner8)
-
-    next1 = np.linalg.norm(nextPoint - corner1)
-    next2 = np.linalg.norm(nextPoint - corner2)
-    next3 = np.linalg.norm(nextPoint - corner3)
-    next4 = np.linalg.norm(nextPoint - corner4)
-    next5 = np.linalg.norm(nextPoint - corner5)
-    next6 = np.linalg.norm(nextPoint - corner6)
-    next7 = np.linalg.norm(nextPoint - corner7)
-    next8 = np.linalg.norm(nextPoint - corner8)
-
-    if next1 > curr1 and next2 > curr2 and next3 > curr3 and next4 > curr4 and next5 > curr5 and next6 > curr6 and next7 > curr7 and next8 > curr8:
-        return False
-    else:
-        return True
 
 def set_cube_dimension(top_down_view_info, padding, grid_size):
 
@@ -804,20 +631,78 @@ def set_cube_dimension(top_down_view_info, padding, grid_size):
                     'y_origin': top_down_view_info['y_avg'] - half, 
                     'z_origin': top_down_view_info['z_avg'] - half}
 
-    #x_size = abs(top_down_view_info['x_min'] - top_down_view_info['x_max']) 
-    #y_size = abs(top_down_view_info['y_min'] - top_down_view_info['y_max']) 
-    #z_size = abs(top_down_view_info['z_min'] - top_down_view_info['z_max']) 
-    
-
-    #the global location of  (0, 0, 0) cell in the cube  
-    #cube_origin = { 'x_origin': top_down_view_info['position']['x'] + top_down_view_info['x_min'], 
-    #                'y_origin': top_down_view_info['position']['y'] + top_down_view_info['y_min'], 
-    #                'z_origin': top_down_view_info['position']['z'] + top_down_view_info['z_min'] }
-
     cube_info = {'size' : cube_size, 'cube_origin' : cube_origin, 'grid_size' : grid_size, 'cell_width' : cube_size/float(grid_size)}
     return cube_info
 
-def get_ray_info(file_arr):
+def intersect_cube(starting_point, direction_x, direction_y, direction_z, cube_info):
+    top_point_x = cube_info['cube_origin']['x_origin']
+    top_point_y = cube_info['cube_origin']['y_origin']
+    top_point_z = cube_info['cube_origin']['z_origin']
+    bottom_point_x = cube_info['cube_origin']['x_origin'] + cube_info['size']
+    bottom_point_y = cube_info['cube_origin']['y_origin'] + cube_info['size']
+    bottom_point_z = cube_info['cube_origin']['z_origin'] + cube_info['size']
+
+    
+    bottom_plane = Plane(Point3D(top_point_x, top_point_y, top_point_z), normal_vector=(0, 0, -1))
+    back_plane = Plane(Point3D(top_point_x, top_point_y, top_point_z), normal_vector=(0, -1, 0))
+    side_plane1 = Plane(Point3D(top_point_x, top_point_y, top_point_z), normal_vector=(-1, 0, 0))
+
+    top_plane = Plane(Point3D(bottom_point_x, bottom_point_y, bottom_point_z), normal_vector=(0, 0, 1))
+    front_plane = Plane(Point3D(bottom_point_x, bottom_point_y, bottom_point_z), normal_vector=(0, 1, 0))
+    side_plane2 = Plane(Point3D(bottom_point_x, bottom_point_y, bottom_point_z), normal_vector=(1, 0, 0))
+
+    vector = Line3D(Point3D(starting_point['x'], starting_point['y'], starting_point['z']),
+            Point3D(starting_point['x'] + direction_x , starting_point['y'] + direction_y , starting_point['z'] + direction_z))
+
+    top_intersection = top_plane.intersection(vector)
+    bottom_intersection = bottom_plane.intersection(vector)
+    side1_intersection = side_plane1.intersection(vector)
+    side2_intersection = side_plane2.intersection(vector)
+    front_intersection = front_plane.intersection(vector)
+    back_intersection = back_plane.intersection(vector)
+
+    if len(top_intersection) > 0 and type(top_intersection[0]) is Point3D:
+        point = top_intersection[0]
+        if point.x < bottom_point_x and point.x > top_point_x and point.y < bottom_point_y and point.y > top_point_y:
+            print cube_info
+            print "top intersected intersectiont point : " + str(float(point.x)) + ', ' + str(float(point.y)) + '\n\n\n'
+            return True
+
+    if len(bottom_intersection) > 0 and type(bottom_intersection[0]) is Point3D:
+        point = bottom_intersection[0]
+        if point.x < bottom_point_x and point.x > top_point_x and point.y < bottom_point_y and point.y > top_point_y:
+            print "bottom intersected"
+            return True
+
+    if len(side1_intersection) > 0 and type(side1_intersection[0]) is Point3D:
+        point = side1_intersection[0]
+        if point.z < bottom_point_z and point.z > top_point_z and point.y < bottom_point_y and point.y > top_point_y:
+            print "side1 intersected"
+            return True
+
+    if len(side2_intersection) > 0 and type(side2_intersection[0]) is Point3D:
+        point = side2_intersection[0]
+        if point.z < bottom_point_z and point.z > top_point_z and point.y < bottom_point_y and point.y > top_point_y:
+            print "side2 intersected"
+            return True
+
+    if len(front_intersection) > 0 and type(front_intersection[0]) is Point3D:
+        point = front_intersection[0]
+        if point.x < bottom_point_x and point.x > top_point_x and point.z < bottom_point_z and point.z > top_point_z:
+            print "front intersected"
+            return True
+
+    if len(back_intersection) > 0 and type(back_intersection[0]) is Point3D:
+        point = back_intersection[0]
+        if point.x < bottom_point_x and point.x > top_point_x and point.z < bottom_point_z and point.z > top_point_z:
+            print "back intersected"
+            return True
+
+    print "no intersection found returning false!"
+    return False
+
+
+def get_ray_info(file_arr, grid_size):
     result = {}
     x_max = 0
     x_avg = 0
@@ -868,175 +753,279 @@ def get_ray_info(file_arr):
             "y_min" : y_min, "y_max" : y_max, "y_avg" : y_avg,
             "z_min" : z_min, "z_max" : z_max, "z_avg" : z_avg}
             
-    return set_cube_dimension(result, 1.2 , 100)
+    return set_cube_dimension(result, 1.2 , grid_size)
+
+
+
+def filter_angle(x, y, threshold):
+    if float(x) * float(x) + float(y) * float(y) > threshold:
+        return True
+
+    return False
+
+
+# casts a single ray, which is in the format specified by John
+def ray_cast(sparse_map2, cube_info, ray):
+
+    #if ray comes as a string:
+    array = ray.split(" ")
+    ray_components = []
+    for i in range(0, 10):
+        index = i * 2 + 1
+        ray_components.append(array[index])
+
+
+    ray_x = float(ray_components[0])
+    ray_y = float(ray_components[1])
+    ray_z = float(ray_components[2])
+    
+    direction_x = float(ray_components[3]) - ray_x
+    direction_y = float(ray_components[4]) - ray_y
+    direction_z = float(ray_components[5]) - ray_z
+    r = float(ray_components[6])
+    g = float(ray_components[7])
+    b = float(ray_components[8])
+    a = float(ray_components[9])
+
+
+    vector = [direction_x, direction_y, direction_z]
+    norm = np.linalg.norm(vector)
+    if norm != 0:
+        direction_x = vector[0] / float(norm)
+        direction_y = vector[1] / float(norm)
+        direction_z = vector[2] / float(norm)
+
+    typeA = True
+    if r == 0 and g == 0 and b == 0 and a != 0:
+        typeA = False
+    
+    #cube info
+    cube_origin_x = cube_info['cube_origin']['x_origin']
+    cube_origin_y = cube_info['cube_origin']['y_origin']
+    cube_origin_z = cube_info['cube_origin']['z_origin']
+    grid_size = cube_info['grid_size']
+    cell_width = cube_info['cell_width']
+
+    if typeA:
+        angle_threshold = 0.005
+        if filter_angle(direction_x, direction_y, angle_threshold):
+            return sparse_map2
+
+
+        # Used in decideKeepGoing(): Calculate locations of 8 corners. Calculate next point and see if the ray is moving further away from all 8 corners. If so, return False
+        length = grid_size * cell_width
+            #origin, AKA front bottom left
+        corner1 = np.array([cube_origin_x, cube_origin_y, cube_origin_z])
+            #front top left
+        corner2 = np.array([cube_origin_x, cube_origin_y + length, cube_origin_z])
+            #front top right
+        corner3 = np.array([cube_origin_x + length, cube_origin_y + length, cube_origin_z])
+            #front bottom right
+        corner4 = np.array([cube_origin_x + length, cube_origin_y, cube_origin_z])
+            #back bottom left
+        corner5 = np.array([cube_origin_x, cube_origin_y, cube_origin_z + length])
+            #back top left
+        corner6 = np.array([cube_origin_x, cube_origin_y + length, cube_origin_z + length])
+            #back top right
+        corner7 = np.array([cube_origin_x + length, cube_origin_y + length, cube_origin_z + length])
+            #back bottom left
+        corner8 = np.array([cube_origin_x + length, cube_origin_y, cube_origin_z + length])
+
+        previous = ""
+        delta_z = 0.005
+        cumulative_z = 0.0
+        keepGoing = True
+
+        while keepGoing:
+            curr_x = ray_x + direction_x * cumulative_z
+            curr_y = ray_y + direction_y * cumulative_z
+            curr_z = ray_z + direction_z * cumulative_z
+
+            x = curr_x - cube_origin_x
+            y = curr_y - cube_origin_y
+            z = curr_z - cube_origin_z
+
+            if (x >= 0) and (x <= grid_size * cell_width):
+                if (y >= 0) and (y <= grid_size * cell_width):
+                    if (z >= 0) and (z <= grid_size * cell_width):
+                        key_x = math.floor(x / cell_width)
+                        key_y = math.floor(y / cell_width)
+                        key_z = math.floor(z / cell_width)
+                        key = encode_key(key_x, key_y, key_z)
+
+                        if key != previous:
+                            if key in sparse_map2:
+                                # should we still average in the 'a' value since we know it's 0?
+                                observation = sparse_map2[key]
+                                observation.r = (observation.r * observation.countRGB + r) / float(observation.countRGB + 1)
+                                observation.g = (observation.g * observation.countRGB + g) / float(observation.countRGB + 1)
+                                observation.b = (observation.b * observation.countRGB + b) / float(observation.countRGB + 1)
+                                #observation.a = (observation.a * observation.count + a) / float(observation.count + 1)
+                                # observation.r = r
+                                # observation.g = g
+                                # observation.b = b
+                                observation.countRGB = observation.countRGB + 1
+                                sparse_map2[key] = observation
+                            else:
+                                observation = Observation2()
+                                observation.countRGB = 1
+                                observation.r = r
+                                observation.g = g
+                                observation.b = b
+                                #observation.a = a
+                                sparse_map2[key] = observation
+                            previous = key
+
+            keepGoing = decideKeepGoing(cube_info, curr_x, curr_y, curr_z, direction_x, direction_y, direction_z, delta_z, corner1, corner2, corner3, corner4, corner5, corner6, corner7, corner8)
+            cumulative_z += delta_z      
+
+    else:
+        x = ray_x - cube_origin_x
+        y = ray_y - cube_origin_y
+        z = ray_z - cube_origin_z
+        if (x >= 0) and (x <= grid_size * cell_width):
+            if (y >= 0) and (y <= grid_size * cell_width):
+                if (z >= 0) and (z <= grid_size * cell_width):
+                    key_x = math.floor(x / cell_width)
+                    key_y = math.floor(y / cell_width)
+                    key_z = math.floor(z / cell_width)
+                    key = encode_key(key_x, key_y, key_z)
+
+                    if key in sparse_map2:
+                        # should we still average the r g b channels here since we know they're 0?
+                        observation = sparse_map2[key]
+                        #observation.r = (observation.r * observation.count + r) / float(observation.count + 1)
+                        #observation.g = (observation.g * observation.count + g) / float(observation.count + 1)
+                        #observation.b = (observation.b * observation.count + b) / float(observation.count + 1)
+                        observation.a = (observation.a * observation.countA + a) / float(observation.countA + 1)
+                        observation.countA = observation.countA + 1
+                        sparse_map2[key] = observation
+                    else:
+                        observation = Observation2()
+                        observation.countA = 1
+                        #observation.r = r
+                        #observation.g = g
+                        #observation.b = b
+                        observation.a = a
+                        sparse_map2[key] = observation
+    return sparse_map2
+
+
+
+
+def decideKeepGoing(cube_info, x, y, z, dirX, dirY, dirZ, delta_z, corner1, corner2, corner3, corner4, corner5, corner6, corner7, corner8):
+    starting_point = {'x' : x, 'y' : y, 'z': z}
+    if not intersect_cube(starting_point, dirX, dirY, dirZ, cube_info):
+        return False
+
+    curr = np.array([x, y, z])
+    nextPoint = np.array([x + delta_z * dirX, y + delta_z * dirY, z + delta_z * dirZ])
+
+    curr1 = np.linalg.norm(curr - corner1)
+    curr2 = np.linalg.norm(curr - corner2)
+    curr3 = np.linalg.norm(curr - corner3)
+    curr4 = np.linalg.norm(curr - corner4)
+    curr5 = np.linalg.norm(curr - corner5)
+    curr6 = np.linalg.norm(curr - corner6)
+    curr7 = np.linalg.norm(curr - corner7)
+    curr8 = np.linalg.norm(curr - corner8)
+
+    next1 = np.linalg.norm(nextPoint - corner1)
+    next2 = np.linalg.norm(nextPoint - corner2)
+    next3 = np.linalg.norm(nextPoint - corner3)
+    next4 = np.linalg.norm(nextPoint - corner4)
+    next5 = np.linalg.norm(nextPoint - corner5)
+    next6 = np.linalg.norm(nextPoint - corner6)
+    next7 = np.linalg.norm(nextPoint - corner7)
+    next8 = np.linalg.norm(nextPoint - corner8)
+
+    if next1 > curr1 and next2 > curr2 and next3 > curr3 and next4 > curr4 and next5 > curr5 and next6 > curr6 and next7 > curr7 and next8 > curr8:
+        return False
+    else:
+        return True
 
 
 ################################################################################################
 ################################################################################################
 ################################################################################################
 
-def main(file_name):
+def main():
     # PAREMETER TUNING 
     GRID_SIZE = 100 # there are GRID_SIZE^3 cells in the cube / number of smalls cubes in one edge
     PADDING_RATE = 1.2 # how much more space are we going to consider other than (min - max)
     THRESHOLD  = 0.8
     MIN_OBSERVATION = 3
 
+
+    # INITIALIZE VARIABLES 
     sparse_map = {}
-    sparse_map2 = {}
-    #top_down_view_info = get_info_from_top_view(top_view)
-
-    #ray file
     fileList = ["duckStrawberryBowlAlpha1.ray"]
-    cube_info = get_ray_info(fileList)
+    cube_info = get_ray_info(fileList, GRID_SIZE)
 
-    print "starting 1"
 
-    # only type B
+    # only type (ALPHA)
+    print "starting ray casting for alpha ray...."
     f1 = open("duckStrawberryBowlAlpha1.ray")
     lines1 = f1.readlines()
     for line1 in lines1:
         line1 = line1.strip()
-        sparse_map2 = ray_cast2(sparse_map2, cube_info, line1)
+        sparse_map = ray_cast(sparse_map, cube_info, line1)
 
-    print "starting 2"
 
-    # only type B
-    # f2 = open("test.ray")
-    # lines2 = f2.readlines()
-    # for line2 in lines2:
-    #     line2 = line2.strip()
-    #     sparse_map2 = ray_cast2(sparse_map2, cube_info, line2)
 
-    # print "starting 3"
-
-    # only type A
+    # only type (BETA)
+    print "starting ray casting for beta rays...."    
     f3 = open("duckStrawberryBowlRGB1.ray")
     lines3 = f3.readlines()
-    randomNumber = math.floor(random.random() * 1000)
+
     count = 0
     num_rays = 0
     for line3 in lines3:
-        if count == randomNumber:
-            line3 = line3.strip()
-            sparse_map2 = ray_cast2(sparse_map2, cube_info, line3)
-            randomNumber = math.floor(random.random() * 1000)
-            count = 0
-            num_rays += 1
-        else:
-            count += 1
+        line3 = line3.strip()
+        sparse_map = ray_cast(sparse_map, cube_info, line3)
+        num_rays += 1
 
-    print "length of final sparse map  : " + str(len(sparse_map2))
-    print num_rays
+
+    print "length of final sparse map  : " + str(len(sparse_map))
+    print "number of final rays that was included in computation : " + str(num_rays)
+
+
+
     # 3. WRITE SPARSE MAP INTO JSON FILE
     data = []
     n_count = 0
     scoreMap = {}
     print " ======  writing to file ======"
-    for key in sparse_map2:
+    for key in sparse_map:
         position = decode_key(key)
-        y = float(sparse_map2[key].r)
-        cr = float(sparse_map2[key].g)
-        cb = float(sparse_map2[key].b)
-        a = float(sparse_map2[key].a)
-        countRGB = float(sparse_map2[key].countRGB)
+        y = float(sparse_map[key].r)
+        cr = float(sparse_map[key].g)
+        cb = float(sparse_map[key].b)
+        a = float(sparse_map[key].a)
+        countRGB = float(sparse_map[key].countRGB)
         bgr_array = convertYCrCB_BGR(y, cr, cb)
         r_mu = float(bgr_array[0])
         g_mu = float(bgr_array[1])
         b_mu = float(bgr_array[2])
 
-        r2_mu = sparse_map2[key].r
-        g2_mu = sparse_map2[key].g
-        b2_mu = sparse_map2[key].b
+        r2_mu = sparse_map[key].r
+        g2_mu = sparse_map[key].g
+        b2_mu = sparse_map[key].b
 
-        if sparse_map2[key].b == 0 and sparse_map2[key].g == 0 and sparse_map2[key].r == 0:
+        if sparse_map[key].b == 0 and sparse_map[key].g == 0 and sparse_map[key].r == 0:
             r_mu = 255
             g_mu = 0
             b_mu = 0
-            # r2_mu = 255
-            # g2_mu = 0
-            # b2_mu = 0
 
-        #if a > 0 and countRGB > 0:
         n_count += 1
         data.append({'x': position['x']*cube_info["cell_width"] , 'y': position['y']*cube_info["cell_width"] , 'z': position['z']*cube_info["cell_width"] , 
             'countRGB': countRGB, 'a': a, 'r' : r_mu, 'g': g_mu, 'b': b_mu, 'r2': r2_mu, 'g2': g2_mu, 'b2': b2_mu})
 
     print n_count
-    print len(sparse_map2)
-    print "done!"
+    print ".....done!"
 
-#     cube_info = set_cube_dimension(top_down_view_info, PADDING_RATE, GRID_SIZE)
-#     print "cube info : " + str(cube_info)
-
-#     # 1. RAY CAST FROM TOP DOWN VIEW SLUG
-#     print "===== reading from top down view ====== "
-#     sparse_map = read_from_yml(top_view, sparse_map, top_down_view_info, cube_info)
-
-
-#     # 2. RAY CAST FROM OTHER VIEWS 
-#     for other_view in other_views:
-#         view_info = get_view_info(other_view)
-#         print " other view info : " + str(view_info) + "\n\n"
-#         sparse_map = read_from_yml(other_view, sparse_map, view_info, cube_info)
-
-
-#     # 3. WRITE SPARSE MAP INTO JSON FILE
-#     data = []
-#     n_count = 0
-#     scoreMap = {}
-#     print " ======  writing to file ======"
-#     for key in sparse_map:
-#         position = decode_key(key)
-#         y = float(sparse_map[key].b)
-#         cr = float(sparse_map[key].g)
-#         cb = float(sparse_map[key].r)
-#         bgr_array = convertYCrCB_BGR(y, cr, cb)
-#         r_mu = float(bgr_array[0])
-#         g_mu = float(bgr_array[1])
-#         b_mu = float(bgr_array[2])
-        
-#         score = sparse_map[key].occupancyConfidence
-
-#         if score in scoreMap:
-#             scoreMap[score] = scoreMap[score] + 1
-#         else:
-#             scoreMap[score] = 1
-
-#         if score >= THRESHOLD:
-#             data.append({'x': position['x']*cube_info["cell_width"] , 'y': position['y']*cube_info["cell_width"] , 'z': position['z']*cube_info["cell_width"] , 
-#                 'score': score , 'r' : r_mu, 'g': g_mu, 'b': b_mu})
-#         else:
-#             n_count = n_count + 1
-
-#     print " noise count is : " + str(n_count) + " among total of : " + str(len(sparse_map))
-
-# # for i in range(0, 1000):
-# #     #as axis scale increases, the drawn axes get smaller
-# #     axis_scale = 100
-# #     value = i / float(axis_scale)
-# #     #x axis is red
-# #     data.append({'x': value, 'y': 0, 'z': 0, 'score': 1, 'r' : 255, 'g': 0, 'b': 0})
-# #     #y axis is green 
-# #     data.append({'x': 0, 'y': value, 'z': 0, 'score': 1, 'r' : 0, 'g': 255, 'b': 0})
-# #     #z axis is blue
-# #     data.append({'x': 0, 'y': 0, 'z': value, 'score': 1, 'r' : 0, 'g': 0, 'b': 255})
-
-# #     print scoreMap
     
-    out_file = open("ray_output2.json", "w")
-
-#     # Save the dictionary into this file
-#     # (the 'indent=4' is optional, but makes it more readable)
-
-#     #final_data = {"data" : data , "info" : top_down_view_info}
-#     #json.dump(final_data, out_file, indent=4)                                    
-
-#     #temp = new_planes + old_planes
-
-#     print " ================== ABOUT TO WRTIE TO FILE =============="
-#     print "length of final sparse map  : " + str(len(sparse_map))
-#     print "length of data written to json after threshold  : " + str(len(data))
+    out_file = open("ray_output.json", "w")
     json.dump(data, out_file, indent=4) 
     
     # Close the file
@@ -1059,9 +1048,9 @@ if __name__ == "__main__":
     #     for i in range(2,l-1):
     #         other_views.append(sys.argv[i])
 
+    main()
 
-    #     print "processing " + str(l-2) + " yaml files and creating " +  str(file_name) + "  json file..." 
-    file_name = ""
-    main(file_name)
+
+
 
    
